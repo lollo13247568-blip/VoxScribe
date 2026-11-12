@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="it" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoxScribe AI — Trascrizione Istantanea Audio & Video</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#151e2e',
+                            900: '#0f172a',
+                            950: '#090d16',
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'gradient-x': 'gradient-x 3s ease infinite',
+                    },
+                    keyframes: {
+                        'gradient-x': {
+                            '0%, 100%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'left center'
+                            },
+                            '50%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'right center'
+                            },
+                        },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar for sleek dark UI */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155; 
+        }
+
+        /* Glassmorphism utilities */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            transition: all 0.2s ease;
+        }
+
+        .glass-card:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            background: rgba(30, 41, 59, 0.6);
+        }
+
+        /* Custom audio wave animation */
+        @keyframes soundwave {
+            0%, 100% { height: 6px; }
+            50% { height: 22px; }
+        }
+        .wave-bar {
+            animation: soundwave 1s ease-in-out infinite;
+        }
+        .wave-bar:nth-child(2) { animation-delay: 0.15s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.3s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.45s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.6s; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white overflow-x-hidden">
+
+    <!-- Ambient Background Glows -->
+    <div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div class="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-[120px]"></div>
+        <div class="absolute top-1/3 -right-40 w-96 h-96 bg-cyan-500/15 rounded-full blur-[120px]"></div>
+        <div class="absolute -bottom-40 left-1/3 w-96 h-96 bg-indigo-500/10 rounded-full blur-[120px]"></div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Header -->
+    <header class="relative z-10 border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md sticky top-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                    <i data-lucide="audio-waveform" class="w-6 h-6 text-slate-950 stroke-[2.5]"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-cyan-300 bg-clip-text text-transparent flex items-center gap-2">
+                        VoxScribe <span class="text-xs font-mono uppercase px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Turbo</span>
+                    </h1>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">Motore di trascrizione neurale ultra-rapido</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <span class="hidden md:inline-flex items-center gap-1.5 text-xs text-slate-400 bg-slate-900/90 px-3 py-1.5 rounded-full border border-slate-800">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Pronto per .MP3 / .MP4
+                </span>
+                <button id="btn-reset-all" class="hidden text-xs font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 px-3.5 py-2 rounded-xl border border-slate-700/80 transition flex items-center gap-1.5">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nuovo File
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="relative z-10 flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        
+        <!-- SECTION 1: UPLOAD DROPZONE (Visible initially) -->
+        <section id="upload-section" class="max-w-3xl mx-auto my-4 sm:my-10 transition-all duration-300">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
+                    Trascrivi Audio e Video in <span class="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">Pochi Secondi</span>
+                </h2>
+                <p class="text-slate-400 text-sm sm:text-base max-w-xl mx-auto">
+                    Trascina un file multimediale per estrarre istantaneamente il testo completo, generare sottotitoli sincronizzati (.SRT) e ottenere riassunti intelligenti.
+                </p>
+            </div>
+
+            <!-- Drag & Drop Zone -->
+            <div id="drop-zone" class="glass-panel rounded-3xl p-8 sm:p-12 border-2 border-dashed border-slate-700 hover:border-indigo-500/80 transition-all duration-300 cursor-pointer group relative overflow-hidden text-center shadow-2xl">
+                <input type="file" id="file-input" class="hidden" accept=".mp3,.mp4,.wav,.m4a,.webm,.ogg,audio/*,video/*">
+                
+                <!-- Hover Gradient Overlay -->
+                <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="w-20 h-20 rounded-2xl bg-slate-900/90 border border-slate-700/80 group-hover:border-indigo-500/50 group-hover:scale-105 transition-all duration-300 flex items-center justify-center mb-6 shadow-xl">
+                        <i data-lucide="upload-cloud" class="w-10 h-10 text-indigo-400 group-hover:text-cyan-400 transition-colors"></i>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-white mb-2">
+                        Trascina qui il tuo file audio o video
+                    </h3>
+                    <p class="text-sm text-slate-400 mb-6">
+                        oppure <span class="text-cyan-400 font-medium underline decoration-cyan-400/40 underline-offset-4 group-hover:text-cyan-300">sfoglia dal tuo dispositivo</span>
+                    </p>
+
+                    <!-- Supported Format Pills -->
+                    <div class="flex flex-wrap justify-center gap-2 mb-4">
+                        <span class="px-3 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-xs font-mono text-indigo-300">.MP4</span>
+                        <span class="px-3 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-xs font-mono text-cyan-300">.MP3</span>
+                        <span class="px-3 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-xs font-mono text-slate-300">.WAV</span>
+                        <span class="px-3 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-xs font-mono text-slate-300">.M4A</span>
+                        <span class="px-3 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-xs font-mono text-slate-300">.WEBM</span>
+                    </div>
+                    <p class="text-xs text-slate-500">Dimensione consigliata fino a 18 MB per elaborazione istantanea</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: WORKSPACE (Visible after file upload) -->
+        <section id="workspace-section" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- LEFT COLUMN: Media Player & Controls (5 cols on desktop) -->
+            <div class="lg:col-span-5 flex flex-col gap-5">
+                
+                <!-- File Info & Media Player Card -->
+                <div class="glass-panel rounded-2xl p-5 shadow-xl">
+                    <div class="flex items-start justify-between gap-3 mb-4">
+                        <div class="flex items-center gap-3 overflow-hidden">
+                            <div id="file-type-icon" class="w-11 h-11 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0 text-indigo-400">
+                                <i data-lucide="file-audio" class="w-5 h-5"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <h3 id="file-name" class="text-sm font-semibold text-white truncate" title="nome_file.mp3">nome_file.mp3</h3>
+                                <div class="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                                    <span id="file-size">0 MB</span>
+                                    <span>•</span>
+                                    <span id="file-duration-badge" class="font-mono text-cyan-400">--:--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="btn-change-file" class="text-xs text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition shrink-0" title="Cambia file">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
+                    <!-- Integrated Audio/Video Container -->
+                    <div id="media-container" class="rounded-xl overflow-hidden bg-slate-950 border border-slate-800/90 relative">
+                        <!-- Video Element -->
+                        <video id="video-player" class="hidden w-full max-h-64 object-contain bg-black" controls playsinline></video>
+                        
+                        <!-- Audio Visualizer & Player Wrapper -->
+                        <div id="audio-wrapper" class="hidden p-4 flex flex-col items-center justify-center bg-gradient-to-b from-slate-900 to-slate-950">
+                            <div class="flex items-end justify-center gap-1.5 h-10 mb-3" id="audio-visualizer">
+                                <span class="w-1.5 bg-indigo-500 rounded-full h-2 transition-all"></span>
+                                <span class="w-1.5 bg-cyan-400 rounded-full h-3 transition-all"></span>
+                                <span class="w-1.5 bg-indigo-400 rounded-full h-4 transition-all"></span>
+                                <span class="w-1.5 bg-cyan-500 rounded-full h-2 transition-all"></span>
+                                <span class="w-1.5 bg-indigo-500 rounded-full h-3 transition-all"></span>
+                            </div>
+                            <audio id="audio-player" class="w-full h-10 custom-audio" controls></audio>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transcription Settings Card -->
+                <div class="glass-panel rounded-2xl p-5 shadow-xl flex flex-col gap-4">
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                        <i data-lucide="sliders" class="w-3.5 h-3.5 text-cyan-400"></i> Configurazione AI
+                    </h4>
+
+                    <!-- Language Selector -->
+                    <div>
+                        <label for="language-select" class="block text-xs font-medium text-slate-300 mb-1.5">Lingua del parlato</label>
+                        <div class="relative">
+                            <select id="language-select" class="w-full appearance-none bg-slate-900/90 border border-slate-700/80 hover:border-indigo-500/60 focus:border-cyan-400 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none transition cursor-pointer">
+                                <option value="auto" selected>✨ Rilevamento automatico</option>
+                                <option value="Italiano">🇮🇹 Italiano</option>
+                                <option value="Inglese">🇬🇧 Inglese (English)</option>
+                                <option value="Spagnolo">🇪🇸 Spagnolo (Español)</option>
+                                <option value="Francese">🇫🇷 Francese (Français)</option>
+                                <option value="Tedesco">🇩🇪 Tedesco (Deutsch)</option>
+                            </select>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                        </div>
+                    </div>
+
+                    <!-- Extra AI Features Toggles -->
+                    <div class="space-y-2.5 pt-1">
+                        <label class="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700 cursor-pointer transition">
+                            <div class="flex items-center gap-2.5">
+                                <i data-lucide="sparkles" class="w-4 h-4 text-indigo-400"></i>
+                                <div>
+                                    <div class="text-xs font-medium text-slate-200">Riassunto & Punti Chiave</div>
+                                    <div class="text-[11px] text-slate-400">Estrai sintesi esecutiva e bullet point</div>
+                                </div>
+                            </div>
+                            <input type="checkbox" id="toggle-summary" checked class="w-4 h-4 accent-indigo-500 rounded cursor-pointer">
+                        </label>
+
+                        <label class="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700 cursor-pointer transition">
+                            <div class="flex items-center gap-2.5">
+                                <i data-lucide="clock" class="w-4 h-4 text-cyan-400"></i>
+                                <div>
+                                    <div class="text-xs font-medium text-slate-200">Timestamp & Sottotitoli .SRT</div>
+                                    <div class="text-[11px] text-slate-400">Genera segmenti temporizzati cliccabili</div>
+                                </div>
+                            </div>
+                            <input type="checkbox" id="toggle-timestamps" checked class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                        </label>
+                    </div>
+
+                    <!-- Start Transcription Button -->
+                    <button id="btn-transcribe" class="w-full mt-1 py-3.5 px-5 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 shadow-lg shadow-indigo-500/25 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer">
+                        <i data-lucide="zap" class="w-4 h-4 fill-current"></i>
+                        <span>Avvia Trascrizione Superveloce</span>
+                    </button>
+
+                    <!-- Real-time Progress & Status Bar -->
+                    <div id="progress-container" class="hidden pt-2 space-y-2">
+                        <div class="flex items-center justify-between text-xs">
+                            <span id="status-text" class="text-cyan-400 font-medium flex items-center gap-1.5">
+                                <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
+                                Elaborazione in corso...
+                            </span>
+                            <span id="progress-percent" class="font-mono text-slate-400">0%</span>
+                        </div>
+                        <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                            <div id="progress-bar" class="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full transition-all duration-300 w-0"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Transcription Output, Tabs, Stats & Export (7 cols on desktop) -->
+            <div class="lg:col-span-7 flex flex-col gap-4">
+                
+                <!-- Top Action & Stats Bar -->
+                <div class="glass-panel rounded-2xl p-4 shadow-xl flex flex-wrap items-center justify-between gap-3">
+                    
+                    <!-- View Tabs -->
+                    <div class="flex items-center bg-slate-950/90 p-1 rounded-xl border border-slate-800/80">
+                        <button data-tab="transcript" class="tab-btn active px-3.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white shadow transition">
+                            Trascrizione
+                        </button>
+                        <button data-tab="timestamps" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition">
+                            Segmenti / SRT
+                        </button>
+                        <button data-tab="summary" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition flex items-center gap-1">
+                            <i data-lucide="sparkles" class="w-3 h-3 text-cyan-400"></i> Riassunto AI
+                        </button>
+                    </div>
+
+                    <!-- Quick Copy & Download Actions -->
+                    <div class="flex items-center gap-2">
+                        <button id="btn-copy" disabled class="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 disabled:opacity-40 disabled:pointer-events-none transition flex items-center gap-1.5 cursor-pointer" title="Copia testo negli appunti">
+                            <i data-lucide="copy" class="w-3.5 h-3.5 text-cyan-400"></i>
+                            <span>Copia</span>
+                        </button>
+                        <button id="btn-download-txt" disabled class="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 disabled:opacity-40 disabled:pointer-events-none transition flex items-center gap-1.5 cursor-pointer" title="Scarica file di testo .txt">
+                            <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-400"></i>
+                            <span>.TXT</span>
+                        </button>
+                        <button id="btn-download-srt" disabled class="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 disabled:opacity-40 disabled:pointer-events-none transition flex items-center gap-1.5 cursor-pointer" title="Scarica sottotitoli .srt">
+                            <i data-lucide="subtitles" class="w-3.5 h-3.5 text-emerald-400"></i>
+                            <span>.SRT</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Main Output Display Area -->
+                <div class="glass-panel rounded-2xl p-5 sm:p-6 shadow-xl min-h-[420px] flex flex-col justify-between relative">
+                    
+                    <!-- Empty / Ready State -->
+                    <div id="output-placeholder" class="my-auto text-center py-12 px-4">
+                        <div class="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto mb-4 text-slate-500">
+                            <i data-lucide="align-left" class="w-7 h-7"></i>
+                        </div>
+                        <h3 class="text-base font-medium text-slate-200 mb-1">In attesa di trascrizione</h3>
+                        <p class="text-xs text-slate-400 max-w-sm mx-auto">
+                            Premi il pulsante <span class="text-indigo-400 font-medium">"Avvia Trascrizione Superveloce"</span> a sinistra per convertire il parlato in testo.
+                        </p>
+                    </div>
+
+                    <!-- Skeleton Loading State -->
+                    <div id="output-skeleton" class="hidden space-y-4 py-2">
+                        <div class="flex items-center gap-2 text-xs text-cyan-400 font-mono mb-4">
+                            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                            Analisi spettrogramma audio e decodifica neurale in corso...
+                        </div>
+                        <div class="h-4 bg-slate-800/80 rounded-lg w-3/4 animate-pulse"></div>
+                        <div class="h-4 bg-slate-800/80 rounded-lg w-full animate-pulse"></div>
+                        <div class="h-4 bg-slate-800/80 rounded-lg w-5/6 animate-pulse"></div>
+                        <div class="h-4 bg-slate-800/80 rounded-lg w-2/3 animate-pulse"></div>
+                        <div class="pt-4 h-4 bg-slate-800/80 rounded-lg w-full animate-pulse"></div>
+                        <div class="h-4 bg-slate-800/80 rounded-lg w-4/5 animate-pulse"></div>
+                    </div>
+
+                    <!-- TAB 1: Full Transcript Editable Textarea -->
+                    <div id="tab-content-transcript" class="hidden flex-grow flex flex-col">
+                        <div class="flex items-center justify-between mb-2">
+                            <span id="detected-lang-badge" class="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                                Lingua: Rilevata
+                            </span>
+                            <span class="text-[11px] text-slate-500">Puoi modificare direttamente il testo qui sotto</span>
+                        </div>
+                        <textarea id="transcript-textarea" class="w-full flex-grow min-h-[330px] bg-slate-950/60 border border-slate-800/90 focus:border-indigo-500/60 rounded-xl p-4 text-sm sm:text-base text-slate-200 leading-relaxed focus:outline-none resize-y" placeholder="Il testo trascritto apparirà qui..."></textarea>
+                    </div>
+
+                    <!-- TAB 2: Interactive Timestamped Segments -->
+                    <div id="tab-content-timestamps" class="hidden flex-grow flex flex-col">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs text-slate-400">Clicca su un timestamp per saltare a quel punto nel player</span>
+                            <span id="segment-count-badge" class="text-[11px] font-mono text-cyan-400">0 segmenti</span>
+                        </div>
+                        <div id="segments-list" class="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
+                            <!-- Segments injected via JS -->
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: AI Summary & Key Points -->
+                    <div id="tab-content-summary" class="hidden flex-grow flex flex-col space-y-5">
+                        <div class="bg-slate-950/60 border border-slate-800/90 rounded-xl p-4">
+                            <h4 class="text-xs font-semibold uppercase tracking-wider text-indigo-400 mb-2 flex items-center gap-1.5">
+                                <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Sintesi Esecutiva
+                            </h4>
+                            <p id="summary-text" class="text-sm text-slate-200 leading-relaxed">
+                                Nessun riassunto disponibile.
+                            </p>
+                        </div>
+
+                        <div class="bg-slate-950/60 border border-slate-800/90 rounded-xl p-4">
+                            <h4 class="text-xs font-semibold uppercase tracking-wider text-cyan-400 mb-3 flex items-center gap-1.5">
+                                <i data-lucide="list-checks" class="w-3.5 h-3.5"></i> Punti Chiave Estratti
+                            </h4>
+                            <ul id="keypoints-list" class="space-y-2 text-sm text-slate-300">
+                                <!-- Key points injected via JS -->
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Footer Statistics Bar -->
+                    <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
+                        <div class="flex items-center gap-4">
+                            <span class="flex items-center gap-1.5">
+                                <i data-lucide="type" class="w-3.5 h-3.5 text-indigo-400"></i>
+                                Parole: <strong id="stat-words" class="text-slate-200 font-mono">0</strong>
+                            </span>
+                            <span class="flex items-center gap-1.5">
+                                <i data-lucide="hash" class="w-3.5 h-3.5 text-cyan-400"></i>
+                                Caratteri: <strong id="stat-chars" class="text-slate-200 font-mono">0</strong>
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="flex items-center gap-1.5">
+                                <i data-lucide="book-open" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                Lettura stimata: <strong id="stat-read-time" class="text-slate-200 font-mono">0 sec</strong>
+                            </span>
+                            <span id="stat-process-time" class="hidden text-[11px] font-mono text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/50">
+                                ⚡ 0.0s
+                            </span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Gemini API Configuration (Runtime key injected automatically)
+        const apiKey = ""; 
+        const MODEL_NAME = "gemini-3-flash-preview";
+
+        // Application State
+        const state = {
+            file: null,
+            fileBase64: null,
+            mimeType: null,
+            isVideo: false,
+            activeTab: 'transcript',
+            transcriptionResult: null, // { fullText, detectedLanguage, summary, keyPoints, segments: [{start, end, text}] }
+            isProcessing: false
+        };
+
+        // DOM Elements
+        const els = {
+            uploadSection: document.getElementById('upload-section'),
+            workspaceSection: document.getElementById('workspace-section'),
+            dropZone: document.getElementById('drop-zone'),
+            fileInput: document.getElementById('file-input'),
+            btnResetAll: document.getElementById('btn-reset-all'),
+            btnChangeFile: document.getElementById('btn-change-file'),
+            
+            // Media & File Info
+            fileTypeIcon: document.getElementById('file-type-icon'),
+            fileName: document.getElementById('file-name'),
+            fileSize: document.getElementById('file-size'),
+            fileDurationBadge: document.getElementById('file-duration-badge'),
+            videoPlayer: document.getElementById('video-player'),
+            audioWrapper: document.getElementById('audio-wrapper'),
+            audioPlayer: document.getElementById('audio-player'),
+            audioVisualizer: document.getElementById('audio-visualizer'),
+
+            // Controls
+            languageSelect: document.getElementById('language-select'),
+            toggleSummary: document.getElementById('toggle-summary'),
+            toggleTimestamps: document.getElementById('toggle-timestamps'),
+            btnTranscribe: document.getElementById('btn-transcribe'),
+            progressContainer: document.getElementById('progress-container'),
+            statusText: document.getElementById('status-text'),
+            progressPercent: document.getElementById('progress-percent'),
+            progressBar: document.getElementById('progress-bar'),
+
+            // Output & Tabs
+            tabBtns: document.querySelectorAll('.tab-btn'),
+            outputPlaceholder: document.getElementById('output-placeholder'),
+            outputSkeleton: document.getElementById('output-skeleton'),
+            tabTranscript: document.getElementById('tab-content-transcript'),
+            tabTimestamps: document.getElementById('tab-content-timestamps'),
+            tabSummary: document.getElementById('tab-content-summary'),
+            
+            // Content Fields
+            detectedLangBadge: document.getElementById('detected-lang-badge'),
+            transcriptTextarea: document.getElementById('transcript-textarea'),
+            segmentCountBadge: document.getElementById('segment-count-badge'),
+            segmentsList: document.getElementById('segments-list'),
+            summaryText: document.getElementById('summary-text'),
+            keypointsList: document.getElementById('keypoints-list'),
+
+            // Export Buttons
+            btnCopy: document.getElementById('btn-copy'),
+            btnDownloadTxt: document.getElementById('btn-download-txt'),
+            btnDownloadSrt: document.getElementById('btn-download-srt'),
+
+            // Stats
+            statWords: document.getElementById('stat-words'),
+            statChars: document.getElementById('stat-chars'),
+            statReadTime: document.getElementById('stat-read-time'),
+            statProcessTime: document.getElementById('stat-process-time'),
+        };
+
+        // --- UTILITY: Toast Notifications ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = {
+                info: 'bg-slate-900/95 border-indigo-500/50 text-slate-100',
+                success: 'bg-slate-900/95 border-emerald-500/50 text-emerald-200',
+                error: 'bg-red-950/95 border-red-500/50 text-red-200'
+            };
+
+            const icons = {
+                info: 'info',
+                success: 'check-circle-2',
+                error: 'alert-circle'
+            };
+
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-2xl backdrop-blur-md text-xs font-medium transform transition-all duration-300 translate-y-2 opacity-0 ${colors[type]}`;
+            toast.innerHTML = `<i data-lucide="${icons[type]}" class="w-4 h-4 shrink-0"></i><span>${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons({ root: toast });
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // --- UTILITY: Formatting ---
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatSecondsToMMSS(seconds) {
+            if (isNaN(seconds) || !isFinite(seconds)) return "--:--";
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function formatSecondsToSRT(seconds) {
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            const ms = Math.floor((seconds % 1) * 1000);
+            return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
+        }
+
+        function parseTimeStringToSeconds(timeStr) {
+            if (typeof timeStr === 'number') return timeStr;
+            if (!timeStr) return 0;
+            const parts = timeStr.split(':').map(parseFloat);
+            if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+            if (parts.length === 2) return parts[0] * 60 + parts[1];
+            return parseFloat(timeStr) || 0;
+        }
+
+        // --- DRAG & DROP & FILE HANDLING ---
+        els.dropZone.addEventListener('click', () => els.fileInput.click());
+        els.btnChangeFile.addEventListener('click', () => els.fileInput.click());
+
+        els.dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            els.dropZone.classList.add('border-cyan-400', 'bg-slate-900/80', 'scale-[1.01]');
+        });
+
+        ['dragleave', 'dragend'].forEach(evt => {
+            els.dropZone.addEventListener(evt, () => {
+                els.dropZone.classList.remove('border-cyan-400', 'bg-slate-900/80', 'scale-[1.01]');
+            });
+        });
+
+        els.dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            els.dropZone.classList.remove('border-cyan-400', 'bg-slate-900/80', 'scale-[1.01]');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                handleFileSelection(e.dataTransfer.files[0]);
+            }
+        });
+
+        els.fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFileSelection(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelection(file) {
+            // Validate file type
+            const validExts = ['.mp3', '.mp4', '.wav', '.m4a', '.webm', '.ogg', '.aac'];
+            const fileNameLower = file.name.toLowerCase();
+            const isValidExt = validExts.some(ext => fileNameLower.endsWith(ext));
+            const isMediaMime = file.type.startsWith('audio/') || file.type.startsWith('video/');
+
+            if (!isValidExt && !isMediaMime) {
+                showToast('Formato non supportato. Carica un file .mp3, .mp4, .wav, .m4a o .webm.', 'error');
+                return;
+            }
+
+            // Warn if file is very large for inline browser base64 API payload (limit ~19.5MB)
+            const maxBytes = 19.5 * 1024 * 1024;
+            if (file.size > maxBytes) {
+                showToast('Il file supera i 19.5 MB. Per velocità ottimale usa file più compatti o estrai solo la traccia audio .mp3.', 'error');
+                return;
+            }
+
+            state.file = file;
+            state.fileBase64 = null;
+            
+            // Determine MIME type fallback if browser leaves it blank
+            let mime = file.type;
+            if (!mime) {
+                if (fileNameLower.endsWith('.mp3')) mime = 'audio/mp3';
+                else if (fileNameLower.endsWith('.mp4')) mime = 'video/mp4';
+                else if (fileNameLower.endsWith('.wav')) mime = 'audio/wav';
+                else if (fileNameLower.endsWith('.m4a')) mime = 'audio/mp4';
+                else if (fileNameLower.endsWith('.webm')) mime = 'video/webm';
+                else mime = 'audio/mp3';
+            }
+            state.mimeType = mime;
+            state.isVideo = mime.startsWith('video/') || fileNameLower.endsWith('.mp4') || fileNameLower.endsWith('.webm');
+
+            // Update UI Info
+            els.fileName.textContent = file.name;
+            els.fileName.title = file.name;
+            els.fileSize.textContent = formatBytes(file.size);
+            els.fileDurationBadge.textContent = "--:--";
+
+            // Setup Integrated Player
+            const objectUrl = URL.createObjectURL(file);
+            if (state.isVideo) {
+                els.fileTypeIcon.innerHTML = `<i data-lucide="file-video" class="w-5 h-5"></i>`;
+                els.audioWrapper.classList.add('hidden');
+                els.audioPlayer.pause();
+                els.videoPlayer.classList.remove('hidden');
+                els.videoPlayer.src = objectUrl;
+                els.videoPlayer.onloadedmetadata = () => {
+                    els.fileDurationBadge.textContent = formatSecondsToMMSS(els.videoPlayer.duration);
+                };
+            } else {
+                els.fileTypeIcon.innerHTML = `<i data-lucide="file-audio" class="w-5 h-5"></i>`;
+                els.videoPlayer.classList.add('hidden');
+                els.videoPlayer.pause();
+                els.audioWrapper.classList.remove('hidden');
+                els.audioPlayer.src = objectUrl;
+                els.audioPlayer.onloadedmetadata = () => {
+                    els.fileDurationBadge.textContent = formatSecondsToMMSS(els.audioPlayer.duration);
+                };
+            }
+            lucide.createIcons();
+
+            // Switch from Upload Section to Workspace
+            els.uploadSection.classList.add('hidden');
+            els.workspaceSection.classList.remove('hidden');
+            els.btnResetAll.classList.remove('hidden');
+
+            // Reset output area for new file
+            resetOutputUI();
+            showToast(`File "${file.name}" caricato e pronto!`, 'success');
+        }
+
+        // Audio Visualizer Animation linked to audio player state
+        els.audioPlayer.addEventListener('play', () => {
+            els.audioVisualizer.querySelectorAll('span').forEach(bar => bar.classList.add('wave-bar'));
+        });
+        ['pause', 'ended'].forEach(evt => {
+            els.audioPlayer.addEventListener(evt, () => {
+                els.audioVisualizer.querySelectorAll('span').forEach(bar => bar.classList.remove('wave-bar'));
+            });
+        });
+
+        // Reset All
+        els.btnResetAll.addEventListener('click', () => {
+            els.videoPlayer.pause();
+            els.audioPlayer.pause();
+            state.file = null;
+            state.fileBase64 = null;
+            state.transcriptionResult = null;
+            els.fileInput.value = '';
+            els.workspaceSection.classList.add('hidden');
+            els.btnResetAll.classList.add('hidden');
+            els.uploadSection.classList.remove('hidden');
+        });
+
+        function resetOutputUI() {
+            state.transcriptionResult = null;
+            els.outputPlaceholder.classList.remove('hidden');
+            els.outputSkeleton.classList.add('hidden');
+            els.tabTranscript.classList.add('hidden');
+            els.tabTimestamps.classList.add('hidden');
+            els.tabSummary.classList.add('hidden');
+            els.progressContainer.classList.add('hidden');
+            els.statProcessTime.classList.add('hidden');
+            
+            els.btnCopy.disabled = true;
+            els.btnDownloadTxt.disabled = true;
+            els.btnDownloadSrt.disabled = true;
+            updateStats('');
+        }
+
+        // --- TAB SWITCHING ---
+        els.tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.getAttribute('data-tab');
+                switchTab(target);
+            });
+        });
+
+        function switchTab(tabName) {
+            state.activeTab = tabName;
+            els.tabBtns.forEach(b => {
+                if (b.getAttribute('data-tab') === tabName) {
+                    b.classList.add('bg-indigo-600', 'text-white', 'shadow');
+                    b.classList.remove('text-slate-400', 'hover:text-white');
+                } else {
+                    b.classList.remove('bg-indigo-600', 'text-white', 'shadow');
+                    b.classList.add('text-slate-400', 'hover:text-white');
+                }
+            });
+
+            if (!state.transcriptionResult) return;
+
+            els.tabTranscript.classList.toggle('hidden', tabName !== 'transcript');
+            els.tabTimestamps.classList.toggle('hidden', tabName !== 'timestamps');
+            els.tabSummary.classList.toggle('hidden', tabName !== 'summary');
+        }
+
+        // --- FILE TO BASE64 CONVERTER ---
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const result = reader.result;
+                    // Strip data:*/*;base64, prefix
+                    const base64 = result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // --- EXPONENTIAL BACKOFF FETCH FOR GEMINI API ---
+        async function fetchWithRetry(url, options, maxRetries = 4) {
+            const delays = [1000, 2000, 4000, 8000];
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) {
+                        if ((response.status === 429 || response.status >= 500) && attempt < maxRetries) {
+                            await new Promise(res => setTimeout(res, delays[attempt]));
+                            continue;
+                        }
+                        const errText = await response.text();
+                        throw new Error(`Errore API (${response.status}): ${errText}`);
+                    }
+                    return await response.json();
+                } catch (err) {
+                    if (attempt === maxRetries) throw err;
+                    await new Promise(res => setTimeout(res, delays[attempt]));
+                }
+            }
+        }
+
+        // --- PROGRESS BAR SIMULATION ---
+        let progressInterval = null;
+        function startProgress() {
+            els.progressContainer.classList.remove('hidden');
+            let pct = 5;
+            updateProgressUI(pct, 'Codifica flusso multimediale...');
+            
+            progressInterval = setInterval(() => {
+                if (pct < 35) {
+                    pct += 5;
+                    updateProgressUI(pct, 'Invio al motore neurale Gemini...');
+                } else if (pct < 75) {
+                    pct += 3;
+                    updateProgressUI(pct, 'Trascrizione parlato e sincronizzazione...');
+                } else if (pct < 92) {
+                    pct += 1;
+                    updateProgressUI(pct, 'Finalizzazione riassunto e timestamp...');
+                }
+            }, 400);
+        }
+
+        function updateProgressUI(percent, text) {
+            els.progressBar.style.width = `${percent}%`;
+            els.progressPercent.textContent = `${percent}%`;
+            if (text) {
+                els.statusText.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> ${text}`;
+                lucide.createIcons({ root: els.statusText });
+            }
+        }
+
+        function stopProgress(success = true) {
+            clearInterval(progressInterval);
+            if (success) {
+                updateProgressUI(100, 'Trascrizione completata!');
+                els.statusText.innerHTML = `<i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-400"></i> <span class="text-emerald-400">Completato con successo</span>`;
+                lucide.createIcons({ root: els.statusText });
+            } else {
+                els.progressContainer.classList.add('hidden');
+            }
+        }
+
+        // --- MAIN TRANSCRIPTION EXECUTION ---
+        els.btnTranscribe.addEventListener('click', async () => {
+            if (!state.file || state.isProcessing) return;
+
+            state.isProcessing = true;
+            els.btnTranscribe.disabled = true;
+            els.btnTranscribe.classList.add('opacity-60', 'cursor-not-allowed');
+            
+            els.outputPlaceholder.classList.add('hidden');
+            els.tabTranscript.classList.add('hidden');
+            els.tabTimestamps.classList.add('hidden');
+            els.tabSummary.classList.add('hidden');
+            els.outputSkeleton.classList.remove('hidden');
+
+            const startTime = performance.now();
+            startProgress();
+
+            try {
+                // 1. Convert File to Base64 (cached if re-run on same file)
+                if (!state.fileBase64) {
+                    state.fileBase64 = await fileToBase64(state.file);
+                }
+
+                const selectedLang = els.languageSelect.value;
+                const wantSummary = els.toggleSummary.checked;
+                const wantTimestamps = els.toggleTimestamps.checked;
+
+                const langInstruction = selectedLang === 'auto' 
+                    ? "Rileva automaticamente la lingua parlata e trascrivi fedelmente nella lingua originale." 
+                    : `La lingua parlata è ${selectedLang}. Trascrivi fedelmente in ${selectedLang}.`;
+
+                const promptText = `Sei un trascrittore professionista ultra-preciso. Analizza questo file audio/video.
+${langInstruction}
+Fornisci:
+1. "fullText": La trascrizione integrale, ben punteggiata e suddivisa in paragrafi leggibili.
+2. "detectedLanguage": Il nome in italiano della lingua rilevata (es. "Italiano", "Inglese").
+3. "segments": Un array cronologico di segmenti con timestamp precisi in secondi ("startSeconds" e "endSeconds" come numeri decimali) e il "text" corrispondente per generare sottotitoli SRT accurati.${!wantTimestamps ? ' (Fornisci comunque almeno i segmenti principali)' : ''}
+4. "summary": ${wantSummary ? 'Un riassunto chiaro e conciso (3-5 frasi) in italiano del contenuto.' : 'Stringa vuota.'}
+5. "keyPoints": ${wantSummary ? 'Un array di 3-6 punti chiave sintetici in italiano.' : 'Array vuoto.'}`;
+
+                const payload = {
+                    contents: [{
+                        role: "user",
+                        parts: [
+                            { text: promptText },
+                            {
+                                inlineData: {
+                                    mimeType: state.mimeType,
+                                    data: state.fileBase64
+                                }
+                            }
+                        ]
+                    }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                fullText: { type: "STRING" },
+                                detectedLanguage: { type: "STRING" },
+                                summary: { type: "STRING" },
+                                keyPoints: {
+                                    type: "ARRAY",
+                                    items: { type: "STRING" }
+                                },
+                                segments: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            startSeconds: { type: "NUMBER" },
+                                            endSeconds: { type: "NUMBER" },
+                                            text: { type: "STRING" }
+                                        },
+                                        required: ["startSeconds", "endSeconds", "text"]
+                                    }
+                                }
+                            },
+                            required: ["fullText", "detectedLanguage", "summary", "keyPoints", "segments"]
+                        }
+                    }
+                };
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
+                
+                const data = await fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const rawJsonText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!rawJsonText) {
+                    throw new Error("Risposta vuota dal modello AI.");
+                }
+
+                const parsed = JSON.parse(rawJsonText);
+                state.transcriptionResult = parsed;
+
+                const elapsedSec = ((performance.now() - startTime) / 1000).toFixed(1);
+                stopProgress(true);
+                renderTranscriptionResult(parsed, elapsedSec);
+                showToast(`Trascrizione completata in ${elapsedSec} secondi!`, 'success');
+
+            } catch (error) {
+                console.error("Errore trascrizione:", error);
+                stopProgress(false);
+                els.outputSkeleton.classList.add('hidden');
+                els.outputPlaceholder.classList.remove('hidden');
+                showToast(`Errore durante la trascrizione: ${error.message}`, 'error');
+            } finally {
+                state.isProcessing = false;
+                els.btnTranscribe.disabled = false;
+                els.btnTranscribe.classList.remove('opacity-60', 'cursor-not-allowed');
+            }
+        });
+
+        // --- RENDER RESULTS ---
+        function renderTranscriptionResult(data, elapsedSec) {
+            els.outputSkeleton.classList.add('hidden');
+            
+            // Populate Transcript Tab
+            els.detectedLangBadge.textContent = `Lingua: ${data.detectedLanguage || 'Rilevata'}`;
+            els.transcriptTextarea.value = data.fullText || '';
+            updateStats(data.fullText || '');
+
+            // Show execution time
+            els.statProcessTime.textContent = `⚡ ${elapsedSec}s`;
+            els.statProcessTime.classList.remove('hidden');
+
+            // Populate Segments / Timestamps Tab
+            const segments = Array.isArray(data.segments) ? data.segments : [];
+            els.segmentCountBadge.textContent = `${segments.length} segmenti`;
+            els.segmentsList.innerHTML = '';
+
+            if (segments.length === 0) {
+                els.segmentsList.innerHTML = `<p class="text-xs text-slate-400 italic py-4 text-center">Nessun segmento temporizzato disponibile.</p>`;
+            } else {
+                segments.forEach((seg, idx) => {
+                    const startSec = parseTimeStringToSeconds(seg.startSeconds);
+                    const endSec = parseTimeStringToSeconds(seg.endSeconds);
+                    const timeLabel = `${formatSecondsToMMSS(startSec)} → ${formatSecondsToMMSS(endSec)}`;
+
+                    const item = document.createElement('div');
+                    item.className = 'glass-card p-3 rounded-xl flex items-start gap-3 group';
+                    item.innerHTML = `
+                        <button type="button" data-seek="${startSec}" class="seek-btn shrink-0 font-mono text-[11px] px-2.5 py-1 rounded-lg bg-indigo-500/20 text-cyan-300 border border-indigo-500/30 hover:bg-indigo-500 hover:text-white transition cursor-pointer mt-0.5" title="Riproduci da questo punto">
+                            ${timeLabel}
+                        </button>
+                        <p class="text-sm text-slate-200 leading-relaxed flex-grow">${escapeHtml(seg.text)}</p>
+                    `;
+                    els.segmentsList.appendChild(item);
+                });
+
+                // Attach click listeners to seek media player
+                els.segmentsList.querySelectorAll('.seek-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const seekTime = parseFloat(btn.getAttribute('data-seek'));
+                        const activePlayer = state.isVideo ? els.videoPlayer : els.audioPlayer;
+                        if (activePlayer && !isNaN(seekTime)) {
+                            activePlayer.currentTime = seekTime;
+                            activePlayer.play().catch(() => {});
+                        }
+                    });
+                });
+            }
+
+            // Populate Summary & Key Points Tab
+            els.summaryText.textContent = data.summary && data.summary.trim() !== '' 
+                ? data.summary 
+                : 'Opzione riassunto non selezionata per questa elaborazione.';
+
+            els.keypointsList.innerHTML = '';
+            const points = Array.isArray(data.keyPoints) ? data.keyPoints : [];
+            if (points.length === 0) {
+                els.keypointsList.innerHTML = `<li class="text-xs text-slate-500 italic">Nessun punto chiave estratto.</li>`;
+            } else {
+                points.forEach(pt => {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-start gap-2.5';
+                    li.innerHTML = `
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-2 shrink-0"></span>
+                        <span>${escapeHtml(pt)}</span>
+                    `;
+                    els.keypointsList.appendChild(li);
+                });
+            }
+
+            // Enable Export Buttons
+            els.btnCopy.disabled = false;
+            els.btnDownloadTxt.disabled = false;
+            els.btnDownloadSrt.disabled = segments.length === 0;
+
+            // Show active tab
+            switchTab(state.activeTab);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+            });
+        }
+
+        // --- LIVE TEXT STATS CALCULATION ---
+        els.transcriptTextarea.addEventListener('input', (e) => {
+            updateStats(e.target.value);
+        });
+
+        function updateStats(text) {
+            const trimmed = text.trim();
+            const chars = text.length;
+            const words = trimmed ? trimmed.split(/\s+/).length : 0;
+            
+            // Average reading speed ~200 words per minute
+            const totalSeconds = Math.ceil((words / 200) * 60);
+            let readTimeStr = '0 sec';
+            if (words > 0) {
+                if (totalSeconds < 60) {
+                    readTimeStr = `${totalSeconds} sec`;
+                } else {
+                    const mins = Math.floor(totalSeconds / 60);
+                    const secs = totalSeconds % 60;
+                    readTimeStr = secs > 0 ? `${mins} min ${secs}s` : `${mins} min`;
+                }
+            }
+
+            els.statWords.textContent = words.toLocaleString('it-IT');
+            els.statChars.textContent = chars.toLocaleString('it-IT');
+            els.statReadTime.textContent = readTimeStr;
+        }
+
+        // --- COPY & DOWNLOAD EXPORT FUNCTIONS ---
+        els.btnCopy.addEventListener('click', () => {
+            let textToCopy = '';
+            if (state.activeTab === 'summary' && state.transcriptionResult) {
+                const pts = (state.transcriptionResult.keyPoints || []).map(p => `• ${p}`).join('\n');
+                textToCopy = `RIASSUNTO:\n${state.transcriptionResult.summary}\n\nPUNTI CHIAVE:\n${pts}`;
+            } else {
+                textToCopy = els.transcriptTextarea.value;
+            }
+
+            if (!textToCopy) return;
+
+            // Reliable iframe-compatible copy method
+            const tempInput = document.createElement('textarea');
+            tempInput.value = textToCopy;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                showToast('Testo copiato negli appunti!', 'success');
+            } catch (err) {
+                showToast('Impossibile copiare automaticamente.', 'error');
+            }
+            document.body.removeChild(tempInput);
+        });
+
+        els.btnDownloadTxt.addEventListener('click', () => {
+            const content = els.transcriptTextarea.value;
+            if (!content) return;
+            const baseName = state.file ? state.file.name.replace(/\.[^/.]+$/, "") : "trascrizione";
+            triggerDownload(content, `${baseName}_trascrizione.txt`, 'text/plain;charset=utf-8');
+            showToast('File .TXT scaricato!', 'success');
+        });
+
+        els.btnDownloadSrt.addEventListener('click', () => {
+            const segments = state.transcriptionResult?.segments;
+            if (!segments || segments.length === 0) return;
+
+            let srtContent = '';
+            segments.forEach((seg, index) => {
+                const startSec = parseTimeStringToSeconds(seg.startSeconds);
+                let endSec = parseTimeStringToSeconds(seg.endSeconds);
+                if (endSec <= startSec) endSec = startSec + 2.0;
+
+                srtContent += `${index + 1}\n`;
+                srtContent += `${formatSecondsToSRT(startSec)} --> ${formatSecondsToSRT(endSec)}\n`;
+                srtContent += `${seg.text.trim()}\n\n`;
+            });
+
+            const baseName = state.file ? state.file.name.replace(/\.[^/.]+$/, "") : "sottotitoli";
+            triggerDownload(srtContent.trim(), `${baseName}_sottotitoli.srt`, 'application/x-subrip;charset=utf-8');
+            showToast('Sottotitoli .SRT scaricati!', 'success');
+        });
+
+        function triggerDownload(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
